@@ -1,0 +1,7 @@
+﻿  Client.cpp
+c:\users\max\source\repos\opencv-project\opencv-project\client.cpp(67): warning C4244: "Argument": Konvertierung von "double" in "_Tp", möglicher Datenverlust
+          with
+          [
+              _Tp=int
+          ]
+  OpenCV-Project.vcxproj -> C:\Users\Max\source\repos\OpenCV-Project\x64\Debug\OpenCV-Project.exe
