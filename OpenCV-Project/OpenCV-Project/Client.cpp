@@ -53,7 +53,7 @@ int main(int argc, const char * argv[]) {
 				Rect boundingRect = cv::boundingRect(approx);
 				// Discard small rectangles
 				if (boundingRect.area() > 300) {
-					cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
+					cv::polylines(frameThresholded, approx, true, Scalar(0, 0, 255), 4);
 
 					for (int j = 0; j < approx.size(); j++)
 					{
@@ -64,7 +64,7 @@ int main(int argc, const char * argv[]) {
 							double x = alpha * approx[j].x + (1.0 - alpha) * approx[((j + 1) % 4)].x;
 							double y = alpha * approx[j].y + (1.0 - alpha) * approx[((j + 1) % 4)].y;
 
-							circle(frame, Point(x, y), 1, Scalar(100, 100, 100), 1, 8);
+							circle(frameThresholded, Point(x, y), 1, Scalar(100, 100, 100), 1, 8);
 						}
 					}
 				}
@@ -72,7 +72,7 @@ int main(int argc, const char * argv[]) {
 							
 		}
 
-		imshow("Display window", frame);
+		imshow("Display window", frameThresholded);
 
 		if (waitKey(30) >= 0) break;
 	}
