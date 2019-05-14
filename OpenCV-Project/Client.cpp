@@ -12,9 +12,13 @@ int threshold_slider;
 
 #define THRESHOLD 67
 
+// Change threshold_slider with the trackbar - this is the callback function if the trackbar is being moved
 void on_trackbar(int, void*)
 {
-	threshold(frameGray, frameThresholded, threshold_slider, 255, ADAPTIVE_THRESH_MEAN_C);
+	if (threshold_slider == 0) 
+		adaptiveThreshold(frameGray, frameThresholded, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 33, 5);
+	else
+		threshold(frameGray, frameThresholded, threshold_slider, 255, ADAPTIVE_THRESH_MEAN_C);
 }
 
 int main(int argc, const char * argv[]) {
@@ -22,23 +26,19 @@ int main(int argc, const char * argv[]) {
 
 	VideoCapture cap = VideoCapture("C:\\Users\\Max\\Dropbox\\Uni\\8. Semester\\AR\\MarkerMovie.mp4"); 
 	//VideoCapture cap = VideoCapture(0);
+	
+	namedWindow("ThresholdTrackbar", cv::WINDOW_AUTOSIZE);
+	createTrackbar("ThresholdTrackbar", "ThresholdTrackbar", &threshold_slider, sliderMaxValue, on_trackbar);
 
 	while (cap.read(frame)) {
 
 		// mirror effect
 		flip(frame, frame, 1);
 
+		// to grayscale
 		cvtColor(frame, frameGray, CV_BGR2GRAY);
 
-		namedWindow("ThresholdTrackbar", cv::WINDOW_AUTOSIZE);
-		createTrackbar("ThresholdTrackbar", "ThresholdTrackbar", &threshold_slider, sliderMaxValue, on_trackbar);
-
-		if (threshold_slider == 0) {
-			adaptiveThreshold(frameGray, frameThresholded, 255, ADAPTIVE_THRESH_MEAN_C, THRESH_BINARY, 33, 5);
-		}
-		else {
-			on_trackbar(threshold_slider, 0);
-		}
+		on_trackbar(threshold_slider, 0);
 
 		vector<vector<Point> > contours;
 		findContours(frameThresholded, contours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
@@ -47,16 +47,18 @@ int main(int argc, const char * argv[]) {
 
 		// Go over all contours
 		for (int k = 0; k < contours.size(); k++) {
+
 			// Find polygons for every contour, that has a maximum 2% difference in arc length to the original contour
 			approxPolyDP(Mat(contours[k]), approx, arcLength(Mat(contours[k]), true) * 0.02, true);
 			
 			// Is approximated polygon a square?
 			if (approx.size() == 4) {
-				Rect boundingRect = cv::boundingRect(approx);
 
 				// Discard small and large contour areas
 				double contourSize = contourArea(approx, false);
+
 				if (contourSize > 700 && contourSize < 12000) {
+
 					// Draw polygon around contour with 4 points
 					cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
 
