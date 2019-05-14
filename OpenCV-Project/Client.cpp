@@ -17,7 +17,6 @@ void on_trackbar(int, void*)
 	threshold(frameGray, frameThresholded, threshold_slider, 255, ADAPTIVE_THRESH_MEAN_C);
 }
 
-
 int main(int argc, const char * argv[]) {
 	Mat frame;
 
