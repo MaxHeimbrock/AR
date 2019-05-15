@@ -21,6 +21,33 @@ void on_trackbar(int, void*)
 		threshold(frameGray, frameThresholded, threshold_slider, 255, ADAPTIVE_THRESH_MEAN_C);
 }
 
+// Return value in grayscale of subpixel point p in frame - uses pointer of Mat (so address of Mat[0])
+int getSubpixelValue(const Mat &frame, const Point2f p)
+{
+	// position of the top left pixel of subpixel square
+	int x = int(floorf(p.x));
+	int y = int(floorf(p.y));
+
+	// out of bounds
+	if (x < 0 || x >= frame.cols - 1 ||
+		y < 0 || y >= frame.rows - 1)
+		return 127;
+
+	// delta in both directions into the subpixel square
+	float dx = p.x - x;
+	float dy = p.y - y;
+
+	// pointer to grayscale color (one byte per pixel) of top left pixel
+	unsigned char* i = (unsigned char*)((frame.data + y * frame.step) + x);
+	float middleTop = (1 - dx) * i[0] + dx * i[1];
+	// go one line lower (y+1)
+	i += frame.step; 
+	float middleBot = (1 - dx) * i[0] + dx * i[1];
+	float middle = (1 - dy) * middleTop + dy * middleBot;
+
+	return (int)middle;
+}
+
 int main(int argc, const char * argv[]) {
 	Mat frame;
 
@@ -74,16 +101,19 @@ int main(int argc, const char * argv[]) {
 							double x = alpha * approx[j].x + (1.0 - alpha) * approx[((j + 1) % 4)].x;
 							double y = alpha * approx[j].y + (1.0 - alpha) * approx[((j + 1) % 4)].y;
 
+							Point2f subPoint = Point2f(x, y);
+
 							// draw dividing point
-							circle(frame, Point(x, y), 1, Scalar(255, 0, 0), 2, 8);
+							circle(frame, subPoint, 1, Scalar(255, 0, 0), 2, 8);
+
+							int mine = getSubpixelValue(frameGray, subPoint);
 						}
 
 						// draw endpoint
 						circle(frame, Point(approx[j].x, approx[j].y), 1, Scalar(0, 255, 0), 2, 8);
 					}
 				}
-			}
-							
+			}							
 		}
 
 		cv::imshow("Main Frame", frame);
