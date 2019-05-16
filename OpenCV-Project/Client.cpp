@@ -12,6 +12,8 @@ int threshold_slider;
 
 #define THRESHOLD 67
 
+bool useTrackbar = false;
+
 // Change threshold_slider with the trackbar - this is the callback function if the trackbar is being moved
 void on_trackbar(int, void*)
 {
@@ -54,8 +56,12 @@ int main(int argc, const char * argv[]) {
 	VideoCapture cap = VideoCapture("C:\\Users\\Max\\Dropbox\\Uni\\8. Semester\\AR\\MarkerMovie.mp4"); 
 	//VideoCapture cap = VideoCapture(0);
 	
-	namedWindow("ThresholdTrackbar", cv::WINDOW_AUTOSIZE);
-	createTrackbar("ThresholdTrackbar", "ThresholdTrackbar", &threshold_slider, sliderMaxValue, on_trackbar);
+	if (useTrackbar == true)
+	{
+		namedWindow("ThresholdTrackbar", cv::WINDOW_AUTOSIZE);
+		createTrackbar("ThresholdTrackbar", "ThresholdTrackbar", &threshold_slider, sliderMaxValue, on_trackbar);
+	}
+
 
 	while (cap.read(frame)) {
 
@@ -65,7 +71,11 @@ int main(int argc, const char * argv[]) {
 		// to grayscale
 		cvtColor(frame, frameGray, CV_BGR2GRAY);
 
-		on_trackbar(threshold_slider, 0);
+		if (useTrackbar == true)
+			on_trackbar(threshold_slider, 0);
+		else
+			threshold(frameGray, frameThresholded, THRESHOLD, 255, ADAPTIVE_THRESH_MEAN_C);
+
 
 		vector<vector<Point> > contours;
 		findContours(frameThresholded, contours, CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
@@ -73,10 +83,10 @@ int main(int argc, const char * argv[]) {
 		vector<Point> approx;
 
 		// Go over all contours
-		for (int k = 0; k < contours.size(); k++) {
+		for (int i = 0; i < contours.size(); i++) {
 
 			// Find polygons for every contour, that has a maximum 2% difference in arc length to the original contour
-			approxPolyDP(Mat(contours[k]), approx, arcLength(Mat(contours[k]), true) * 0.02, true);
+			approxPolyDP(Mat(contours[i]), approx, arcLength(Mat(contours[i]), true) * 0.02, true);
 			
 			// Is approximated polygon a square?
 			if (approx.size() == 4) {
@@ -84,33 +94,47 @@ int main(int argc, const char * argv[]) {
 				// Discard small and large contour areas
 				double contourSize = contourArea(approx, false);
 
-				if (contourSize > 700 && contourSize < 12000) {
+				if (contourSize > 600 && contourSize < 12000) {
 
-					// Draw polygon around contour with 4 points
-					cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
+					// Discard obvious non-squares
+					std:vector<double> edges;
 
-					// Divide polygon lines into 7 parts with 6 points and endpoints
-					for (int j = 0; j < approx.size(); j++)
+					edges.push_back(cv::norm(approx[0] - approx[1]));
+					edges.push_back(cv::norm(approx[1] - approx[2]));
+					edges.push_back(cv::norm(approx[2] - approx[3]));
+					edges.push_back(cv::norm(approx[3] - approx[0]));
+
+					double maxEdge = *max_element(edges.begin(), edges.end());
+					double minEdge = *min_element(edges.begin(), edges.end());
+
+					if (maxEdge < (3 * minEdge))
 					{
-						for (int a = 1; a < 7; a++)
+						// Draw polygon around contour with 4 points
+						cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
+
+						// Divide polygon lines into 7 parts with 6 points and endpoints
+						for (int j = 0; j < approx.size(); j++)
 						{
-							// divide at 1/7, 2/7, ...
-							double alpha = a / 7.0;
+							for (int a = 1; a < 7; a++)
+							{
+								// divide at 1/7, 2/7, ...
+								double alpha = a / 7.0;
 
-							// position on line with: a * p1 + (1-a) * p2
-							double x = alpha * approx[j].x + (1.0 - alpha) * approx[((j + 1) % 4)].x;
-							double y = alpha * approx[j].y + (1.0 - alpha) * approx[((j + 1) % 4)].y;
+								// position on line with: a * p1 + (1-a) * p2
+								double x = alpha * approx[j].x + (1.0 - alpha) * approx[((j + 1) % 4)].x;
+								double y = alpha * approx[j].y + (1.0 - alpha) * approx[((j + 1) % 4)].y;
 
-							Point2f subPoint = Point2f(x, y);
+								Point2f subPoint = Point2f(x, y);
 
-							// draw dividing point
-							circle(frame, subPoint, 1, Scalar(255, 0, 0), 2, 8);
+								// draw dividing point
+								circle(frame, subPoint, 1, Scalar(255, 0, 0), 2, 8);
 
-							int mine = getSubpixelValue(frameGray, subPoint);
+								int mine = getSubpixelValue(frameGray, subPoint);
+							}
+
+							// draw endpoint
+							circle(frame, Point(approx[j].x, approx[j].y), 1, Scalar(0, 255, 0), 2, 8);
 						}
-
-						// draw endpoint
-						circle(frame, Point(approx[j].x, approx[j].y), 1, Scalar(0, 255, 0), 2, 8);
 					}
 				}
 			}							
