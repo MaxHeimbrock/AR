@@ -107,7 +107,7 @@ int main(int argc, const char * argv[]) {
 					double maxEdge = *max_element(edges.begin(), edges.end());
 					double minEdge = *min_element(edges.begin(), edges.end());
 
-					if (maxEdge < (3 * minEdge))
+					if (maxEdge < (2.5 * minEdge))
 					{
 						// Draw polygon around contour with 4 points
 						cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
