@@ -14,6 +14,58 @@ int threshold_slider;
 
 bool useTrackbar = false;
 
+// Struct holding all infos about each strip, e.g. length
+struct MyStrip {
+	// discrete length - stripes width is const 3 in for loop in processing
+	int stripeLength;
+	// Indices like -2 to +2
+	int nStop;
+	int nStart;
+	// vector of directions to orient the stripe
+	Point2f stripeVecX;
+	Point2f stripeVecY;
+};
+
+// returns an empty Mat for the stripes pixels in the correct size
+// sets the stripe struct
+Mat calculate_Stripe(double dx, double dy, MyStrip& st) {
+	// Norm (euclidean distance) from the direction vector is the length (derived from the Pythagoras Theorem)
+	double diffLength = sqrt(dx * dx + dy * dy);
+
+	// Length proportional to the marker size
+	st.stripeLength = (int)(0.8 * diffLength);
+
+	if (st.stripeLength < 5)
+		st.stripeLength = 5;
+
+	// Make stripeLength odd (because of the shift in nStop), Example 6: both sides of the strip must have the same length XXXOXXX
+	//st.stripeLength |= 1;
+	if (st.stripeLength % 2 == 0)
+		st.stripeLength++;
+
+	// E.g. stripeLength = 5 --> from -2 to 2: Shift -> half top, the other half bottom
+	//st.nStop = st.stripeLength >> 1;
+	st.nStop = st.stripeLength / 2;
+	st.nStart = -st.nStop;
+
+	Size stripeSize;
+
+	// Sample a strip of width 3 pixels
+	stripeSize.width = 3;
+	stripeSize.height = st.stripeLength;
+
+	// Normalized direction vector
+	st.stripeVecX.x = dx / diffLength;
+	st.stripeVecX.y = dy / diffLength;
+
+	// Normalized perpendicular vector
+	st.stripeVecY.x = st.stripeVecX.y;
+	st.stripeVecY.y = -st.stripeVecX.x;
+
+	// 8 bit unsigned char with 1 channel, gray
+	return Mat(stripeSize, CV_8UC1);
+}
+
 // Change threshold_slider with the trackbar - this is the callback function if the trackbar is being moved
 void on_trackbar(int, void*)
 {
@@ -111,25 +163,60 @@ int main(int argc, const char * argv[]) {
 					{
 						// Draw polygon around contour with 4 points
 						cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
-
+				
 						// Divide polygon lines into 7 parts with 6 points and endpoints
 						for (int j = 0; j < approx.size(); j++)
 						{
+							// Euclidic distance, 7 -> parts, both directions dx and dy
+							double dx = ((double)approx[(j + 1) % 4].x - (double)approx[j].x) / 7.0;
+							double dy = ((double)approx[(j + 1) % 4].y - (double)approx[j].y) / 7.0;
+
+							MyStrip strip;
+							Mat stripPixels = calculate_Stripe(dx, dy, strip);
+
 							for (int a = 1; a < 7; a++)
 							{
-								// divide at 1/7, 2/7, ...
-								double alpha = a / 7.0;
+								// Position calculation
+								double px = (double)approx[j].x + (double)a * dx;
+								double py = (double)approx[j].y + (double)a * dy;
 
-								// position on line with: a * p1 + (1-a) * p2
-								double x = alpha * approx[j].x + (1.0 - alpha) * approx[((j + 1) % 4)].x;
-								double y = alpha * approx[j].y + (1.0 - alpha) * approx[((j + 1) % 4)].y;
-
-								Point2f subPoint = Point2f(x, y);
+								Point2f p = Point2f(px, py);
 
 								// draw dividing point
-								circle(frame, subPoint, 1, Scalar(255, 0, 0), 2, 8);
+								circle(frame, p, 1, Scalar(255, 0, 0), 2, 8);
 
-								int mine = getSubpixelValue(frameGray, subPoint);
+								// test my subpixel function
+								// int mine = getSubpixelValue(frameGray, subPoint);
+
+								// find subpixel intensity of all pixels in strip and safe in Mat stripPixels
+
+								// in x axis
+								for (int m = -1; m <= +1; m++)
+								{
+									// in y axis
+									for (int n = strip.nStart; n <= strip.nStop; n++)
+									{
+										Point2f subPixel;
+
+										// navigate to every pixel in strip
+										subPixel.x = px + ((double)m * strip.stripeVecX.x) + ((double)n*strip.stripeVecY.x);
+										subPixel.y = py + ((double)m * strip.stripeVecX.y) + ((double)n*strip.stripeVecY.y);
+
+										// Combined Intensity of the subpixel
+										int pixelIntensity = getSubpixelValue(frameGray, subPixel);
+
+										// Converte from index to pixel coordinate
+										// m (Column, real) -> -1,0,1 but we need to map to 0,1,2 -> add 1 to 0..2
+										int w = m + 1;
+
+										// n (Row, real) -> add stripeLenght >> 1 to shift to 0..stripeLength
+										// n=0 -> -length/2, n=length/2 -> 0 ........ + length/2
+										int h = n + (strip.stripeLength >> 1);
+
+										// Set pointer to correct position and safe subpixel intensity
+										stripPixels.at<uchar>(h, w) = (uchar)pixelIntensity;
+									}
+								}
 							}
 
 							// draw endpoint
