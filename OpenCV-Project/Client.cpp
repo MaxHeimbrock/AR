@@ -171,6 +171,7 @@ int main(int argc, const char * argv[]) {
 							double dx = ((double)approx[(j + 1) % 4].x - (double)approx[j].x) / 7.0;
 							double dy = ((double)approx[(j + 1) % 4].y - (double)approx[j].y) / 7.0;
 
+							// makes a placeholder matrix in the correct size for the strip of pixels
 							MyStrip strip;
 							Mat stripPixels = calculate_Stripe(dx, dy, strip);
 
@@ -190,7 +191,7 @@ int main(int argc, const char * argv[]) {
 
 								// find subpixel intensity of all pixels in strip and safe in Mat stripPixels
 
-								// in x axis
+								// in x axis, always 3 pixel wide
 								for (int m = -1; m <= +1; m++)
 								{
 									// in y axis
@@ -217,6 +218,27 @@ int main(int argc, const char * argv[]) {
 										stripPixels.at<uchar>(h, w) = (uchar)pixelIntensity;
 									}
 								}
+
+								// here the strip is filled
+
+								// Discard outer values, as sobel filter can not be applied
+								vector<double> peakValues(strip.stripeLength-2);
+
+								int maxIndex = -1;
+								double maxValue = 0;
+
+								for (int k = 1; k < peakValues.size() - 1; k++)
+								{
+									double sobelValue = -(stripPixels.at<uchar>(k - 1, 0) + 2 * stripPixels.at<uchar>(k - 1, 1) + stripPixels.at<uchar>(k - 1, 2)) +
+										(stripPixels.at<uchar>(k + 1, 0) + 2 * stripPixels.at<uchar>(k + 1, 1) + stripPixels.at<uchar>(k + 1, 2));
+
+									if (sobelValue >= maxValue)
+										maxIndex = k;
+
+									peakValues[k - 1] = sobelValue;
+								}
+
+								//cout << maxIndex;
 							}
 
 							// draw endpoint
