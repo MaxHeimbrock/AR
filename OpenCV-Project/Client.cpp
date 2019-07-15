@@ -162,7 +162,7 @@ int main(int argc, const char * argv[]) {
 					if (maxEdge < (2.5 * minEdge))
 					{
 						// Draw polygon around contour with 4 points
-						cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
+						//cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
 				
 						// Divide polygon lines into 7 parts with 6 points and endpoints
 						for (int j = 0; j < approx.size(); j++)
@@ -184,7 +184,7 @@ int main(int argc, const char * argv[]) {
 								Point2f p = Point2f(px, py);
 
 								// draw dividing point
-								circle(frame, p, 1, Scalar(255, 0, 0), 2, 8);
+								//circle(frame, p, 1, Scalar(255, 0, 0), 2, 8);
 
 								// test my subpixel function
 								// int mine = getSubpixelValue(frameGray, subPoint);
@@ -222,23 +222,52 @@ int main(int argc, const char * argv[]) {
 								// here the strip is filled
 
 								// Discard outer values, as sobel filter can not be applied
-								vector<double> peakValues(strip.stripeLength-2);
+								vector<double> peakValues(strip.stripeLength-2);								
 
+								// Find maximum sobel value in for loop
 								int maxIndex = -1;
 								double maxValue = 0;
 
-								for (int k = 1; k < peakValues.size() - 1; k++)
+								// If length = 5, k is 1, 2, 3 - discard 0 and 4
+								for (int k = 1; k < strip.stripeLength - 1; k++)
 								{
-									double sobelValue = -(stripPixels.at<uchar>(k - 1, 0) + 2 * stripPixels.at<uchar>(k - 1, 1) + stripPixels.at<uchar>(k - 1, 2)) +
-										(stripPixels.at<uchar>(k + 1, 0) + 2 * stripPixels.at<uchar>(k + 1, 1) + stripPixels.at<uchar>(k + 1, 2));
+									// This is the sobel filter applied with absolute value
+									double sobelValue = abs(-(stripPixels.at<uchar>(k - 1, 0) + 2 * stripPixels.at<uchar>(k - 1, 1) + stripPixels.at<uchar>(k - 1, 2)) +
+										(stripPixels.at<uchar>(k + 1, 0) + 2 * stripPixels.at<uchar>(k + 1, 1) + stripPixels.at<uchar>(k + 1, 2)));
 
+									// Is value new maximum?
 									if (sobelValue >= maxValue)
-										maxIndex = k;
-
-									peakValues[k - 1] = sobelValue;
+									{
+										maxValue = sobelValue;
+										maxIndex = k - 1;
+									}
+									peakValues[k - 1] = sobelValue;									
 								}
 
-								//cout << maxIndex;
+								double y0, y1, y2;
+
+								y0 = (maxIndex - 1 < 0) ? 0 : peakValues[maxIndex - 1];
+								y1 = peakValues[maxIndex];
+								y2 = (maxIndex + 1 >= peakValues.size()) ? 0 : peakValues[maxIndex + 1];
+
+								double pos = (y2 - y0) / (4 * y1 - 2 * y0 - 2 * y2);
+
+								if (isnan(pos)) {
+									continue;
+								}
+
+								// Exact point with subpixel accuracy
+								Point2d edgeCenter;
+
+								// Back to Index positioning, Where is the edge (max gradient) in the picture?
+								int maxIndexShift = maxIndex - (strip.stripeLength >> 1);
+
+								// Shift the original edgepoint accordingly -> Is the pixel point at the top or bottom?
+								edgeCenter.x = (double)p.x + (((double)maxIndexShift + pos) * strip.stripeVecY.x);
+								edgeCenter.y = (double)p.y + (((double)maxIndexShift + pos) * strip.stripeVecY.y);
+
+								// Highlight the subpixel with blue color
+								circle(frame, edgeCenter, 2, CV_RGB(0, 0, 255), -1);
 							}
 
 							// draw endpoint
