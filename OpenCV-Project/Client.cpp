@@ -135,6 +135,7 @@ int main(int argc, const char * argv[]) {
 		vector<Point> approx;
 
 		// Go over all contours
+		// For every Square
 		for (int i = 0; i < contours.size(); i++) {
 
 			// Find polygons for every contour, that has a maximum 2% difference in arc length to the original contour
@@ -163,8 +164,11 @@ int main(int argc, const char * argv[]) {
 					{
 						// Draw polygon around contour with 4 points
 						//cv::polylines(frame, approx, true, Scalar(0, 0, 255), 4);
+
+						vector<Mat> fittedLines(4);
 				
 						// Divide polygon lines into 7 parts with 6 points and endpoints
+						// For every line of square
 						for (int j = 0; j < approx.size(); j++)
 						{
 							// Euclidic distance, 7 -> parts, both directions dx and dy
@@ -175,6 +179,10 @@ int main(int argc, const char * argv[]) {
 							MyStrip strip;
 							Mat stripPixels = calculate_Stripe(dx, dy, strip);
 
+							// Vector to keep track of intermediate points per square
+							vector<Point2f> intermediatePoints(6);
+
+							// For every intermediate point
 							for (int a = 1; a < 7; a++)
 							{
 								// Position calculation
@@ -266,13 +274,25 @@ int main(int argc, const char * argv[]) {
 								edgeCenter.x = (double)p.x + (((double)maxIndexShift + pos) * strip.stripeVecY.x);
 								edgeCenter.y = (double)p.y + (((double)maxIndexShift + pos) * strip.stripeVecY.y);
 
+								// Fill the vector for each square intermediate points
+								intermediatePoints[a-1] = edgeCenter;
+
 								// Highlight the subpixel with blue color
 								circle(frame, edgeCenter, 2, CV_RGB(0, 0, 255), -1);
 							}
 
+							// Fit the line and add it to the other fitted lines of the square
+							Mat fittedLine;
+							fitLine(intermediatePoints, fittedLine, CV_DIST_L2, 0, 0.01, 0.01);
+							fittedLines[j] = fittedLine;
+
 							// draw endpoint
 							circle(frame, Point(approx[j].x, approx[j].y), 1, Scalar(0, 255, 0), 2, 8);
 						}
+
+						// Here I have all lines fitted
+
+
 					}
 				}
 			}							
